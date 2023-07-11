@@ -1,0 +1,44 @@
+```{r}
+imdb_clean <- read_csv("notes/imdb_clean.csv")
+View(imdb_clean)
+
+imdb<- (imdb_clean)
+View(imdb)
+
+```
+
+# Filter
+
+```{r}
+filter(imdb, release_year == "2017")
+```
+
+# Select
+
+```{r}
+select(imdb, title, genre, "gross(M)")
+```
+
+# Mutate
+
+```{r}
+mutate(imdb,
+       runtime_hour = runtime1/60)
+
+runtime<-sub("min","",imdb$runtime)
+runtime1<-as.integer(runtime)
+```
+
+# Summarize
+
+```{r}
+summarize(imdb,
+          rating_mean<-mean(rating), .by = genre)
+
+```
+
+# Arrange
+
+```{r}
+arrange(imdb, "rating", "genre")
+```
