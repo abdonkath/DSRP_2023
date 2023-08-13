@@ -1,0 +1,278 @@
+---
+---
+---
+
+# Apartments Rent Corresponds with its Region
+
+## Abstract
+
+Our research question is "How do regions the affect average pricing of similar size apartments?". This demonstrates how apartment costs are influenced by the demographics of different regions. Therefore, it makes certain region more appealing to rent and apartment to due to it's price. Our objective is find if there is significant difference of average price among regions for apartments of similar sizes. For this research we use the following columns: price, square_feet, and state. We grouped square_feet by it's size (small, medium, or large) and the state by it's region (Midwest, Northeast, Southeast, Southwest, and West). Once gathered, we find the average pricing each apartments sizes to compare to other regions. Our results, show that there is a significant difference in the average rent across regions of apartments within different sizes. Furthermore, our ANOVA test result using the average price within each sizes is lower than 0.05. This shows the result was not by random chance. In conclusion, regions are a factor of apartment rent prices and renters can consider other regions that fits their budget.
+
+### Background
+
+Apartment rent prices can differ depending with it's amenities, size, location, and etc. This report will focus on the following research question, "How do regions the affect average pricing of similar size apartments?". This research is important because it shows how apartment costs are affected by it's demographics of region. Therefore, it makes certain apartments more appealing to rent because of what is available in it's respective location. Lastly, it gives renters insight on what region to consider based on their budget and lifestyle.
+
+### Hypothesis & Results
+
+#### Null Hypothesis: There is no significant difference in the average rent across regions of apartments within different sizes.
+
+```{r echo=FALSE}
+library("readr")
+library(dplyr)
+library(janitor)
+library(tidyr)
+library(ggplot2)
+
+data <- read_delim("data/apartments_for_rent_classified_10K.csv", delim = ";")
+View(data)
+
+?read_delim
+
+head(data)
+summary(data)
+str(data)
+
+# Remove unnecessary columns
+new_data <- select(data,- title, -body, -has_photo, -source, -time)
+
+View(new_data)
+
+# Filter out apartments without amenities
+amenities <- subset(new_data, !is.na(amenities) & amenities != "null")
+View(amenities)
+
+
+#Tidy Format
+# 1.replace null with NA
+apt<-new_data %>%
+  mutate(
+    amenities = ifelse(grepl("null", amenities), NA, amenities),
+    bathrooms = ifelse(grepl("null", bathrooms), NA, bathrooms),
+    address = ifelse(grepl("null", address), NA, address))  
+View(apt)
+
+
+# Mutate - Regions
+region <- apt %>%
+  mutate(region = case_when(
+    state %in% c("DC", "NY", "NJ", "CT", "RI", "MA", "VT", "NH", "ME") ~ "Northeast",
+    state %in% c("VA", "NC", "GA", "FL", "MD", "DE", "SC", "AL", "TN", "KY", "WV", "MS") ~ "Southeast",
+    state %in% c("IN", "IL", "OH", "MI", "WI", "MN", "IA", "MO", "ND", "SD", "NE", "KS") ~ "Midwest",
+    state %in% c("TX", "AZ", "NM", "OK") ~ "Southwest",
+    state %in% c ("WA", "CA", "OR", "NV", "UT", "CO", "AK", "MT", "WY", "ID", "HI") ~ "West"
+    
+  ))
+
+
+View(region)
+
+# Mutate - Small Medium Large
+min(region$square_feet)
+mean(region$square_feet)
+max(region$square_feet)
+
+
+small <- 600
+medium <- 1000
+
+size <- region %>% 
+  mutate(size = case_when(
+    square_feet < small ~ "Small",
+    square_feet < medium ~ "Medium",
+    TRUE ~ "Large"
+  ))
+
+size <- na.omit(size)
+View(size)
+# REGION + SQRT  
+sqrt_region <- size %>%
+  group_by(region, size)
+View(sqrt_region)
+
+na.omit(sqrt_region)
+# Avg cost
+result <- sqrt_region %>%
+  group_by(region, size) %>%
+  summarise(average_cost = mean(price))
+View(result)
+
+# Create the Bar Plot
+ggplot(result, aes(x = region, y = average_cost, fill = size)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Average Apartment Cost by Region and Size",
+       x = "Region",
+       y = "Average Cost") +
+  theme_minimal()
+
+
+#Separate apt sizes 
+west<-filter(sqrt_region, region == "West")
+midwest<-filter(sqrt_region, region == "Midwest")
+northeast<-filter(sqrt_region, region == "Northeast")
+southeast<-filter(sqrt_region, region == "Southeast")
+southwest<-filter(sqrt_region, region=="Southwest")
+
+west_large<- filter(west, size == "Large")
+midwest_large<-filter(midwest, size == "Large")
+northeast_large<-filter(northeast, size == "Large")
+southeast_large<-filter(southeast, size == "Large")
+southwest_large <- filter(southwest, size == "Large")
+
+
+large_midwest <- filter(sqrt_region, region == "Midwest" & size == "Large") #Filter large apartments for Midwest and West regions 
+large_west <- filter(sqrt_region, region == "West" & size == "Large")
+
+View(large_west)
+lm<-head(large_midwest)
+lw<- head(large_west)
+
+lmw<- table(lm$price, lw$price)
+
+t.test(lm$price, lw$price)
+
+# Perform ANOVA
+# Combine large apartments data from all regions
+large_region<-filter(result, size == "Large")
+
+large_region <- rbind(west_large, midwest_large, northeast_large, southeast_large, southwest_large )
+large_region1<-filter(sqrt_region, size == "Large")
+
+
+anova_result <- aov(price ~ region, data = large_region1)
+anova_result
+     
+p_value <- summary(anova_result)[[1]]$"Pr(>F)"[1]
+print(p_value)
+
+
+
+# Avg cost
+lg_mid <- filter(result, region=="Midwest")
+lg_west <- filter(result, region=="West")
+                    
+lg_west_mid <- rbind(lg_mid$average_cost, lg_west$average_cost)                         
+
+
+
+# BarPlot Large, Medium, Small
+large_region<-filter(result, size == "Large")
+ggplot(large_region, aes(x = region, y = average_cost, fill = region)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Average Apartment Cost by Region and Size (Large Apt)",
+       x = "Region",
+       y = "Average Cost") +
+  theme_minimal()
+``
+small_region<-filter(result, size == "Small")
+ggplot(small_region, aes(x = region, y = average_cost, fill = region)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Average Apartment Cost by Region and Size (Small Apt)",
+       x = "Region",
+       y = "Average Cost") +
+  theme_minimal()
+
+medium_region<-filter(result, size == "Medium")
+ggplot(medium_region, aes(x = region, y = average_cost, fill = region)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Average Apartment Cost by Region and Size (Medium Apt)",
+       x = "Region",
+       y = "Average Cost") +
+  theme_minimal()
+
+# Create the bar plot for sample size
+region_counts <- table(region$region) # Count the number of listings in each region
+region_data <- data.frame(Region = names(region_counts), Count = region_counts)
+View(region_data)
+
+ggplot(region_data, aes(x = Region, y = Count.Freq, fill = Region)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Number of Listings in Each Region",
+       x = "Region",
+       y = "Number of Listings") +
+  theme_minimal()
+
+# Relative file path
+read.csv("data/apartments_for_rent_classified_10K.csv")
+
+# Absolute file path (replace "full/path/to/folder" with the actual path)
+read.csv("AbdonProject/data/apartments_for_rent_classified_10K.csv")
+
+```
+
+In this plot, apartments are categorized with it's size (small, medium, large) based on it's square feet and region based on it's state. As you can see, there is difference in prices of apartments with similar sizes. For example, apartments on the West have significantly higher average pricing compare to the other regions. Similarly, this trend applies to apartments of other sizes in the region. Therefore, we decided to look more into specific sizes to compare.
+
+#### Alternative Hypothesis: There is significant difference in the average rent price of large apartments across regions
+
+```{r echo=FALSE}
+large_region<-filter(result, size == "Large")
+ggplot(large_region, aes(x = region, y = average_cost, fill = region)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Average Apartment Cost by Region and Size (Large Apt)",
+       x = "Region",
+       y = "Average Cost") +
+  theme_minimal()
+```
+
+In this plot, we will focus on large size apartments. The graph shows a difference in average pricing within large apartment across regions. Anova test result was lower than .05. Therefore, it rejects the null hypothesis, "There is no significant difference in the average rent price of large apartments across regions".
+
+#### Alternative Hypothesis: There is significant difference in the average rent price of medium apartments across regions
+
+```{r echo=FALSE}
+ggplot(medium_region, aes(x = region, y = average_cost, fill = region)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Average Apartment Cost by Region and Size (Medium Apt)",
+       x = "Region",
+       y = "Average Cost") +
+  theme_minimal()
+```
+
+In this plot, we will focus on medium size apartments. The graph shows a difference in average pricing within medium apartment across regions. Anova test result was lower than .05. Therefore, it rejects the null hypothesis, "There is no significant difference in the average rent price of medium apartments across regions".
+
+#### Alternative Hypothesis: There is significant difference in the average rent price of small apartments across regions
+
+```{r echo=FALSE}
+ggplot(small_region, aes(x = region, y = average_cost, fill = region)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Average Apartment Cost by Region and Size (Small Apt)",
+       x = "Region",
+       y = "Average Cost") +
+  theme_minimal()
+```
+
+In this plot, we will focus on small size apartments. The graph shows a difference in average pricing within small apartment across regions. Anova test result was lower than .05. Therefore, it rejects the null hypothesis, "There is no significant difference in the average rent price of small apartments across regions".
+
+## Discussion & Observation
+
+Our results conclude that regions are a factor of apartment rent prices. So, renters can consider other regions that fits their budget. However, there is limitation to consider such as amenities, apartment features, area safety, population and sample size.
+
+```{r echo=FALSE}
+ggplot(result, aes(x = region, y = average_cost, fill = size)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Average Apartment Cost by Region and Size (Plot 1)",
+       x = "Region",
+       y = "Average Cost") +
+  theme_minimal()
+```
+
+```{r echo=FALSE}
+ggplot(region_data, aes(x = Region, y = Count.Freq, fill = Region)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Number of Listings in Each Region (Plot 2)",
+       x = "Region",
+       y = "Number of Listings") +
+  theme_minimal()
+```
+
+In plot 2, we can noticed that Northeast have significantly lower apartment listed compare to other regions. Therefore, it can have an impact with it's average price in plot 1. This suggests that the mean rent price may or may not provide an accurate representation, making it uncertain when comparing it other regions.
+
+Other noticeable observation is that despite West and Midwest having similar amount apartment listed, the West have significantly higher rent price compare to Midwest. A possible next investigation could be about exploring additional factors that contribute to the significant difference in average rent between the West and Midwest regions.
+
+## Code and Data Availability
+
+Github Repository: <https://github.com/abdonkath/DSRP_2023>
+
+Data source: Our data was provided by our mentor, Dr. Di Xiong.
+
+## Acknowledgements
+
+I would like to acknowledge Dr. Xiong for supporting us and giving essential advice for our research project. I would also thank our Teaching Assistant, Tejas Kamtam, for helping us throughout the beginning until the end of the project. Also, The Coding School team, for teaching us the basics of R, making this project possible. Lastly, the Summer Youth Employment Program for giving me opportunity to join and participate the Coding School.
